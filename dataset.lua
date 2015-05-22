@@ -193,6 +193,7 @@ function loadData(path, width, height)
       table.insert(classes, label)
       print("labelSamples = loadLabelData(" .. path .. '/' .. label .. ", " .. width .. ", " .. height .. ")")
       local samples = loadLabelData(path .. '/' .. label, width, height)
+      preprocessData(samples)
       local newData = labelData(samples, label)
       dataAppend(allData, newData)
    end
