@@ -73,9 +73,12 @@ if model then
 end
 
 trainData, classes = loadData(opt.trainPath, opt.width, opt.height)
+printStatistics('Train Data', trainData.samples)
 normalizeData(trainData)
 testData, _ = loadData(opt.testPath, opt.width, opt.height)
 normalizeData(testData)
+
+printStatistics('Train Data', trainData.samples)
 
 optimState, optimMethod = getOptimizer(opt)
 print(model)
@@ -88,7 +91,7 @@ print '==> training'
 
 currentEpoch = 0
 bestEpoch = 0
-bestTotalValid = 0.0
+bestTotalValid = 0
 while currentEpoch < opt.epochs do
    currentEpoch = train()
    totalValid = test()
