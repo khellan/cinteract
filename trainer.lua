@@ -34,6 +34,7 @@ if not opt then
    cmd:option('-maxIter', 2, 'maximum nb of iterations for CG and LBFGS')
    cmd:option('-visualize', true, 'visualize input data and weights during training')
    cmd:option('-loss', 'nll', 'type of loss function to minimize: nll | mse | margin')
+   cmd:option('-epochs', 100, 'Number of epochs to run')
    cmd:text()
    opt = cmd:parse(arg or {})
 end
@@ -185,6 +186,7 @@ function train()
    -- next epoch
    confusion:zero()
    epoch = epoch + 1
+   return epoch - 1
 end
 
 function test()
@@ -208,8 +210,7 @@ function test()
 
       -- get new sample
       local input = testData.samples[t]
-      if opt.type == 'double' then input = input:double()
-      elseif opt.type == 'cuda' then input = input:cuda() end
+      if opt.cuda then input = input:cuda() end
       local target = testData.labels[t]
 
       -- test sample
@@ -224,6 +225,7 @@ function test()
 
    -- print confusion matrix
    print(confusion)
+   totalValid = confusion.totalValid
 
    -- update log/plot
    testLogger:add{['% mean class accuracy (test set)'] = confusion.totalValid * 100}
@@ -240,9 +242,22 @@ function test()
    
    -- next iteration:
    confusion:zero()
+   return totalValid
 end
 
-while true do
-   train()
-   test()
+currentEpoch = 0
+bestEpoch = 0
+bestTotalValid = 0.0
+while currentEpoch < opt.epochs do
+   currentEpoch = train()
+   totalValid = test()
+   if totalValid > bestTotalValid then
+      bestEpoch = currentEpoch
+      bestTotalValid = totalValid
+   end
 end
+
+print('--- --- --- --- ---')
+print('Best result: ' .. (bestTotalValid * 100) .. '%')
+print('Best epoch : ' .. bestEpoch)
+print('--- --- --- --- ---')
