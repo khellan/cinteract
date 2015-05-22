@@ -25,8 +25,7 @@ function train()
          -- load new sample
          local input = trainData.samples[shuffle[i]]
          local target = trainData.labels[shuffle[i]]
-         if opt.type == 'double' then input = input:double()
-         elseif opt.type == 'cuda' then input = input:cuda() end
+         if opt.cuda then input = input:cuda() end
          table.insert(inputs, input)
          table.insert(targets, target)
       end
