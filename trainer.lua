@@ -8,10 +8,6 @@ require 'torch'   -- torch
 require 'xlua'    -- xlua provides useful tools, like progress bars
 require 'optim'   -- an optimization package, for online and batch methods
 
-paths.dofile('dataset.lua')
-paths.dofile('model.lua')
-paths.dofile('optimizer.lua')
-
 ----------------------------------------------------------------------
 -- parse command line arguments
 if not opt then
@@ -37,29 +33,30 @@ if not opt then
    cmd:option('-t0', 1, 'start averaging at t0 (ASGD only), in nb of epochs')
    cmd:option('-maxIter', 2, 'maximum nb of iterations for CG and LBFGS')
    cmd:option('-visualize', true, 'visualize input data and weights during training')
+   cmd:option('-loss', 'nll', 'type of loss function to minimize: nll | mse | margin')
    cmd:text()
    opt = cmd:parse(arg or {})
 end
 
-----------------------------------------------------------------------
-model = buildModel(opt)
-print(model)
+torch.setdefaulttensortype('torch.FloatTensor')
 
-----------------------------------------------------------------------
--- CUDA?
-if opt.type == 'cuda' then
+dofile('dataset.lua')
+dofile('model.lua')
+dofile('optimizer.lua')
+dofile('loss.lua')
+
+model = buildModel(opt)
+
+criterion = getLoss(opt, model)
+
+if opt.cuda then
+   require 'cunn'
    model:cuda()
    criterion:cuda()
 end
 
 ----------------------------------------------------------------------
 print '==> defining some tools'
-
--- classes
-classes = {'1','0'}
-
--- This matrix records the current confusion across classes
-confusion = optim.ConfusionMatrix(classes)
 
 -- Log results to files
 trainLogger = optim.Logger(paths.concat(opt.save, 'train.log'))
@@ -72,12 +69,18 @@ if model then
    parameters, gradParameters = model:getParameters()
 end
 
-trainData = loadData(opt.trainPath, opt.width, opt.height)
+trainData, classes = loadData(opt.trainPath, opt.width, opt.height)
 normalizeData(trainData)
-testData = loadData(opt.testPath, opt.width, opt.height)
+testData, _ = loadData(opt.testPath, opt.width, opt.height)
 normalizeData(testData)
 
 optimState, optimMethod = getOptimizer(opt)
+print(model)
+
+-- This matrix records the current confusion across classes
+confusion = optim.ConfusionMatrix(classes)
+
+
 ----------------------------------------------------------------------
 print '==> defining training procedure'
 
@@ -108,10 +111,6 @@ function train()
          -- load new sample
          local input = trainData.samples[shuffle[i]]
          local target = trainData.labels[shuffle[i]]
-print('---')
-print('---')
-print('Target is a: ', type(target))
-print('input is a :', input:type())
          if opt.type == 'double' then input = input:double()
          elseif opt.type == 'cuda' then input = input:cuda() end
          table.insert(inputs, input)
@@ -134,7 +133,6 @@ print('input is a :', input:type())
                        -- evaluate function for complete mini batch
                        for i = 1,#inputs do
                           -- estimate f
-print('inputs[' .. i .. '] is a ', inputs[i]:type())
                           local output = model:forward(inputs[i])
                           local err = criterion:forward(output, targets[i])
                           f = f + err

@@ -136,101 +136,67 @@ function normalizeData(dataset)
    normalizeLocally(dataset)
 end
 
+EMPTY_FLOAT_TENSOR = torch.FloatTensor()
+
 function createDataset(samples, labels)
    return {
       samples = samples,
-      labels = labels:float(),
-      size = function() return samples:size(1) end
+      labels = labels,
+      size = function() if samples:dim() > 0 then return samples:size(1) else return 0 end end
    }
 end
 
+function emptyDataset()
+   return createDataset(torch.FloatTensor(), torch.DoubleTensor())
+end
+
 function labelData(samples, label)
-   print("#samples: " .. samples:size(1))
-   labels = torch.Tensor(samples:size(1))
+   local labels = torch.DoubleTensor(samples:size(1))
    for i = 1, samples:size(1) do
       labels[i] = label
    end
+   labels:resize(samples:size(1))
    return createDataset(samples, labels)
 end
 
--- Based on http://stackoverflow.com/questions/1410862/concatenation-of-tables-in-lua/15278426#15278426
--- This version does not change the input tables
-function tableConcat(t1, t2)
-   t0 = {}
-   for i = 1, #t1 do
-      t0[i] = t1[i]
-   end
-   for i = 1, #t2 do
-      t0[#t1 + i] = t2[i]
-   end
-   return t0
-end
-
-function sampleConcat(s1, s2)
-   s0 = torch.FloatTensor(s1:size(1) + s2:size(1), s1:size(2), s1:size(3), s1:size(4))
-   for i = 1, s1:size(1) do
-      s0[i] = s1[i]
-   end
-   offset = s1:size(1)
+function sampleAppend(s1, s2)
+   local offset = 0
+   if s1:dim() > 0 then offset = s1:size(1) end
+   s1:resize(offset + s2:size(1), s2:size(2), s2:size(3), s2:size(4))
    for i = 1, s2:size(1) do
-      s0[offset + i] = s2[i]
+      s1[offset + i] = s2[i]
    end
-   return s0
-end
-
-function labelConcat(l1, l2)
-   l0 = torch.FloatTensor(l1:size(1) + l2:size(1))
-   for i = 1, l1:size(1) do
-      l0[i] = l1[i]
-   end
-   offset = l1:size(1)
-   for i = 1, l2:size(1) do
-      l0[offset + i] = l2[i]
-   end
-   return l0
+   return s1
 end
 
 function labelAppend(l1, l2)
-   offset = l1:size(1)
-   l1:resize(l1:size(1) + l2:size(1))
+   local offset = 0
+   if l1:dim() > 0 then offset = l1:size(1) end
+   l1:resize(offset + l2:size(1))
    for i = 1, l2:size(1) do
       l1[offset + i] = l2[i]
    end
    return l1
 end
 
-function mergeData(datasets)
-   local samples = torch.FloatTensor()
-   local labels = torch.FloatTensor()
-   for _, dataset in ipairs(datasets) do
-      if samples == nil then
-         samples = dataset.samples
-      else
-         samples = sampleConcat(samples, dataset.samples)
-      end
-      if labels == nil then
-         labels = dataset.labels
-      else
-         labels = tableConcat(labels, dataset.labels)
-      end
-   end
-   return createDataset(samples, labels)
+function dataAppend(d1, d2)
+   offset = d1:size(1)
+   sampleAppend(d1.samples, d2.samples)
+   labelAppend(d1.labels, d2.labels)
 end
 
 function loadData(path, width, height)
-   local allData = nil
+   local classes = {}
+   local allData = emptyDataset()
    local labelDirs = scandir(path)
    for _, label in ipairs(labelDirs) do
+      table.insert(classes, label)
       print("labelSamples = loadLabelData(" .. path .. '/' .. label .. ", " .. width .. ", " .. height .. ")")
       local samples = loadLabelData(path .. '/' .. label, width, height)
-      local labelSamples = labelData(samples, label)
-      if allData == nil then
-         allData = labelSamples
-      else 
-         allData = mergeData({allData, labelSamples})
-      end
+      local newData = labelData(samples, label)
+      dataAppend(allData, newData)
    end
-   return allData
+   return allData, classes
 end
 
 function printStatistics(name, samples)
