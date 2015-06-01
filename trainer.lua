@@ -89,19 +89,10 @@ confusion = optim.ConfusionMatrix(classes)
 
 print '==> training'
 
-currentEpoch = 0
-bestEpoch = 0
-bestTotalValid = 0
-while currentEpoch < opt.epochs do
-   currentEpoch = train()
-   totalValid = test()
-   if totalValid > bestTotalValid then
-      bestEpoch = currentEpoch
-      bestTotalValid = totalValid
-   end
+i = 1
+while i < opt.epochs do
+   train()
+   test()
+   i = i + 1
 end
-
-print('Summary:')
-print('Best result: ' .. (bestTotalValid * 100) .. '%')
-print('Best epoch : ' .. bestEpoch)
 

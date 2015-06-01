@@ -34,7 +34,6 @@ function test()
 
    -- print confusion matrix
    print(confusion)
-   totalValid = confusion.totalValid
 
    -- update log/plot
    testLogger:add{['% mean class accuracy (test set)'] = confusion.totalValid * 100}
@@ -51,5 +50,4 @@ function test()
    
    -- next iteration:
    confusion:zero()
-   return totalValid
 end

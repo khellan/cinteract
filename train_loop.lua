@@ -98,5 +98,4 @@ function train()
    -- next epoch
    confusion:zero()
    epoch = epoch + 1
-   return epoch - 1
 end
